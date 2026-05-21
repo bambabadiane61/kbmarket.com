@@ -1401,6 +1401,40 @@
 </div>
 
 <script>
+    // ========== JSONBIN CLOUD ==========
+    const JSONBIN_KEY = '$2a$10$jr0ch3RCMICzqVMuGZxtnu3SKu9MQ9Bl6fcMoFCP3r.S4UuLeEWXW';
+    const JSONBIN_ID  = '6a0e5c06ee5a733b12f2f1ae';
+    const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`;
+
+    async function loadProductsFromCloud() {
+        try {
+            const res = await fetch(`${JSONBIN_URL}/latest`, {
+                headers: { 'X-Master-Key': JSONBIN_KEY }
+            });
+            const data = await res.json();
+            if (data.record && Array.isArray(data.record.products) && data.record.products.length > 0) {
+                products = data.record.products;
+            }
+        } catch(e) {
+            console.error('Erreur chargement produits cloud:', e);
+        }
+    }
+
+    async function saveProductsToCloud() {
+        try {
+            await fetch(JSONBIN_URL, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': JSONBIN_KEY
+                },
+                body: JSON.stringify({ products })
+            });
+        } catch(e) {
+            console.error('Erreur sauvegarde produits cloud:', e);
+        }
+    }
+
     // ========== I18N ==========
     const i18n = {
         fr: {
@@ -2659,13 +2693,15 @@
         cancelProductForm();
         renderProducts(applyFilterAndSearch());
         renderAdminProducts();
-        showToast(T('productSaved'));
+        showToast('⏳ Enregistrement...');
+        saveProductsToCloud().then(() => showToast(T('productSaved')));
     }
     function deleteProduct(id) {
         if (confirm(T('deleteConfirm'))) {
             products = products.filter(x => x.id !== id);
             renderProducts(applyFilterAndSearch());
             renderAdminProducts();
+            saveProductsToCloud().then(() => showToast(T('productDeleted')));
         }
     }
     function cancelProductForm() {
@@ -2687,9 +2723,10 @@
     function showToast(msg) { const t = document.getElementById("toast"); t.innerText = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2500); }
 
     // ========== INIT ==========
-    window.addEventListener("DOMContentLoaded", () => {
+    window.addEventListener("DOMContentLoaded", async () => {
         loadConfig();
         loadSession();
+        await loadProductsFromCloud();
         renderProducts(applyFilterAndSearch());
         updateCartUI();
         document.querySelectorAll(".nav-tab[data-page]").forEach(t => t.addEventListener("click", () => showPage(t.getAttribute("data-page"))));
